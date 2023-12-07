@@ -48,15 +48,18 @@ document.addEventListener("DOMContentLoaded", async function() {
     
         quizItems.forEach(function(item) {
             var selectedAnswers = item.querySelectorAll('.answer.selected');
+            var correctAnswers = item.querySelector('.right-answers-hidden-text').textContent.trim().split(',');
+    
             if (selectedAnswers.length === 0) {
                 allAnswered = false;
             }
     
-            var correctAnswers = item.querySelector('.right-answers-hidden-text').textContent.trim().split(',');
-    
             selectedAnswers.forEach(function(selectedAnswer) {
                 if (!correctAnswers.includes(selectedAnswer.dataset.index)) {
                     allCorrect = false;
+                    selectedAnswer.classList.add('wrong');
+                } else {
+                    selectedAnswer.classList.add('correct');
                 }
             });
         });
