@@ -45,22 +45,22 @@ document.addEventListener("DOMContentLoaded", async function() {
         event.preventDefault();
         var allAnswered = true;
         var allCorrect = true;
-
+    
         quizItems.forEach(function(item) {
             var selectedAnswers = item.querySelectorAll('.answer.selected');
             if (selectedAnswers.length === 0) {
                 allAnswered = false;
             }
-
+    
             var correctAnswers = item.querySelector('.right-answers-hidden-text').textContent.trim().split(',');
-
+    
             selectedAnswers.forEach(function(selectedAnswer) {
                 if (!correctAnswers.includes(selectedAnswer.dataset.index)) {
                     allCorrect = false;
                 }
             });
         });
-
+    
         if (allAnswered && allCorrect) {
             // Markiere korrekte Antworten und friere sie ein
             quizItems.forEach(function(item) {
