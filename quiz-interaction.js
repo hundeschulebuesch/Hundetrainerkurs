@@ -14,24 +14,21 @@ document.addEventListener("DOMContentLoaded", function() {
 
     quizItems.forEach(function(item) {
         var answersText = item.querySelector('.hidden-rich-text').innerHTML;
-        var correctAnswersText = item.querySelector('.right-answers-hidden-text').textContent.trim();
-        var correctAnswers = correctAnswersText.split(',');
+        var correctAnswers = item.querySelector('.right-answers-hidden-text').textContent.trim().split(',').map(function(str) { return str.trim(); });
 
         var answers = answersText.split('</p><p>');
-        answers = answers.map(function(answer) {
-            return answer.replace('<p>', '').replace('</p>', '').trim();
-        });
+        answers = answers.map(function(answer) { return answer.replace('<p>', '').replace('</p>', '').trim(); });
         shuffleArray(answers);
 
         var answersDiv = document.createElement('div');
         answersDiv.className = 'interactive-answers';
 
         answers.forEach(function(answer, index) {
-            if (answer) {
+            if (answer.trim() !== '') {
                 var answerDiv = document.createElement('div');
                 answerDiv.className = 'answer';
                 answerDiv.innerHTML = answer;
-                answerDiv.dataset.index = String.fromCharCode(97 + index); // 'a', 'b', 'c', ...
+                answerDiv.dataset.index = index;
                 answerDiv.addEventListener('click', function() {
                     this.classList.toggle('selected');
                 });
@@ -52,20 +49,18 @@ document.addEventListener("DOMContentLoaded", function() {
                 allAnswered = false;
             }
 
-            var correctAnswers = item.querySelector('.right-answers-hidden-text').textContent.trim().split(',');
+            var correctAnswers = item.querySelector('.right-answers-hidden-text').textContent.trim().split(',').map(function(str) { return str.trim(); });
 
-            item.querySelectorAll('.answer').forEach(function(answer) {
-                if (selectedAnswers.length > 0) {
-                    if (correctAnswers.includes(answer.dataset.index)) {
-                        if (answer.classList.contains('selected')) {
-                            answer.classList.add('correct');
-                        } else {
-                            answer.classList.add('wrong');
-                        }
+            item.querySelectorAll('.answer').forEach(function(answer, index) {
+                if (correctAnswers.includes(answer.innerHTML.trim())) {
+                    if (answer.classList.contains('selected')) {
+                        answer.classList.add('correct');
                     } else {
-                        if (answer.classList.contains('selected')) {
-                            answer.classList.add('wrong');
-                        }
+                        answer.classList.add('wrong');
+                    }
+                } else {
+                    if (answer.classList.contains('selected')) {
+                        answer.classList.add('wrong');
                     }
                 }
                 answer.classList.add('no-click');
