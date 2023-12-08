@@ -1,93 +1,232 @@
-document.addEventListener("DOMContentLoaded", function() {
+document.addEventListener("DOMContentLoaded", async function () {
+  const memberstack = window.$memberstackDom;
+  const quizName = document
+    .querySelector("[pruefung-name]")
+    .getAttribute("pruefung-name");
+  const quizContainer = document.querySelector(".quiz-grid");
+  if (!quizContainer) {
+    console.error("Quiz-Container-Element wurde nicht gefunden.");
+    return;
+  }
+  const attemptInfoBox = document.createElement("div");
+  attemptInfoBox.className = "attempt-info-box";
+  quizContainer.appendChild(attemptInfoBox);
+
+  let memberData;
+
+  try {
+    console.log("Versuche Mitgliederdaten zu laden...");
+    const member = await memberstack.getMemberJSON();
+    memberData = member.data || {};
+
+    if (!memberData.quizAttempts) {
+      memberData.quizAttempts = {};
+    }
+
+    if (
+      memberData.blockedpruefung &&
+      memberData.blockedpruefung.name === quizName
+    ) {
+      const blockTime = new Date(memberData.blockedpruefung.timestamp);
+      const currentTime = new Date();
+
+      if ((currentTime - blockTime) / 3600000 < 24) {
+        quizContainer.innerHTML =
+          "<p>Du musst 24 Stunden warten, bevor du dieses Quiz erneut versuchen kannst.</p>";
+        console.log("Quiz ist blockiert. Wartezeit läuft noch.");
+        return;
+      } else {
+        delete memberData.blockedpruefung;
+        memberData.quizAttempts[quizName] = 0;
+        await memberstack.updateMemberJSON({ json: memberData });
+        console.log("Quizblockierung aufgehoben.");
+      }
+    }
+  } catch (error) {
+    console.error("Fehler beim Laden der Mitgliederdaten: ", error);
+    return;
+  }
+
+  var quizItems = document.querySelectorAll(".quiz-item");
+  var submitButton = document.querySelector(".quiz-submit-button");
+  var retryButton = document.querySelector(".quiz-retry-button");
+
+  // Füge eine Variable hinzu, um den Status der Fragen zu verfolgen
+  var questionsAnswered = Array.from(quizItems).fill(false);
+
   function shuffleArray(array) {
-    for (var i = array.length - 1; i > 0; i--) {
-      var j = Math.floor(Math.random() * (i + 1));
-      var temp = array[i];
-      array[i] = array[j];
-      array[j] = temp;
+    for (let i = array.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [array[i], array[j]] = [array[j], array[i]];
+    }
+    return array;
+  }
+
+  quizItems.forEach(function (item, index) {
+    var answers = Array.from(
+      item.querySelectorAll(".hidden-rich-text-antworten p")
+    )
+      .map((el) => el.textContent.trim())
+      .filter((text) => text !== ""); // Filtere leere Antwortmöglichkeiten
+    var correctAnswerLetters = item
+      .querySelector(".right-answers-hidden-text")
+      .textContent.trim()
+      .split(",");
+    var correctAnswerIndices = correctAnswerLetters.map(
+      (letter) => letter.charCodeAt(0) - "a".charCodeAt(0)
+    );
+
+    var answerObjects = answers.map((text, index) => ({
+      text,
+      isCorrect: correctAnswerIndices.includes(index),
+    }));
+
+    shuffleArray(answerObjects);
+
+    var answersDiv = document.createElement("div");
+    answersDiv.className = "interactive-answers";
+
+    answerObjects.forEach(function (answer) {
+      var answerDiv = document.createElement("div");
+      answerDiv.className = "answer";
+      answerDiv.textContent = answer.text;
+      answerDiv.dataset.isCorrect = answer.isCorrect;
+
+      answerDiv.addEventListener("click", function () {
+        this.classList.toggle("selected");
+        // Aktualisieren Sie den Status der Frage
+        questionsAnswered[index] =
+          item.querySelector(".answer.selected") !== null;
+        // Aktualisieren Sie den Zustand des "Prüfung absenden"-Buttons
+        updateSubmitButtonState();
+      });
+
+      answersDiv.appendChild(answerDiv);
+    });
+
+    item.querySelector(".answers-box").appendChild(answersDiv);
+  });
+
+  function updateSubmitButtonState() {
+    // Überprüfen, ob alle Fragen beantwortet wurden
+    const allQuestionsAnswered = questionsAnswered.every(
+      (answered) => answered
+    );
+
+    // Aktivieren oder deaktivieren Sie den Submit-Button basierend auf dem Status der Fragen
+    submitButton.disabled = !allQuestionsAnswered;
+
+    // Aktualisieren Sie die visuelle Darstellung des Buttons und fügen Sie einen Tooltip hinzu
+    if (allQuestionsAnswered) {
+      submitButton.removeAttribute("disabled");
+      submitButton.setAttribute(
+        "data-tooltip",
+        "Klicke, um die Prüfung abzuschicken"
+      );
+      console.log("Alle Fragen wurden beantwortet. Submit-Button aktiviert.");
+      submitButton.classList.remove("disabled");
+      submitButton.style.pointerEvents = "auto"; // Aktiviert das Klicken
+      submitButton.style.userSelect = "none"; // Verhindert Textmarkierung
+    } else {
+      submitButton.setAttribute("disabled", "");
+      submitButton.setAttribute(
+        "data-tooltip",
+        "Beantworte alle Fragen, um die Prüfung abzusenden"
+      );
+      console.log(
+        "Nicht alle Fragen wurden beantwortet. Submit-Button deaktiviert."
+      );
+      submitButton.classList.add("disabled");
+      submitButton.style.pointerEvents = "none"; // Deaktiviert das Klicken
+      submitButton.style.userSelect = "none"; // Verhindert Textmarkierung
     }
   }
 
-  var quizItems = document.querySelectorAll('.quiz-grid');
-  var submitButton = document.querySelector('.quiz-submit-button');
-  var retryButton = document.querySelector('.quiz-retry-button');
-
-  quizItems.forEach(function(item) {
-    var answersText = item.querySelector('.hidden-rich-text').innerHTML;
-    var correctAnswers = item.querySelector('.right-answers-hidden-text').textContent.trim().split(',');
-
-    // Antworten in ein Array umwandeln und mischen
-    var answers = answersText.split('</p><p>');
-    answers = answers.map(function(answer) { return answer.replace('<p>', '').replace('</p>', ''); });
-    shuffleArray(answers);
-
-    var answersDiv = document.createElement('div');
-    answersDiv.className = 'interactive-answers';
-
-    answers.forEach(function(answer, index) {
-      if (answer.trim() !== '') { // Ignoriere leere Antworten
-        var answerDiv = document.createElement('div');
-        answerDiv.className = 'answer';
-        answerDiv.innerHTML = answer;
-        answerDiv.dataset.index = String.fromCharCode(97 + index);
-        answerDiv.addEventListener('click', function() {
-          this.classList.toggle('selected');
-        });
-        answersDiv.appendChild(answerDiv);
-      }
-    });
-
-    item.querySelector('.answers-box').appendChild(answersDiv);
-  });
-
-  submitButton.addEventListener('click', function(event) {
+  submitButton.addEventListener("click", async function (event) {
     event.preventDefault();
-    var allAnswered = true;
+    var allCorrect = true;
 
-    quizItems.forEach(function(item) {
-      var selectedAnswers = item.querySelectorAll('.answer.selected');
-      if (selectedAnswers.length === 0) {
-        allAnswered = false;
-      }
-    });
+    quizItems.forEach(function (item) {
+      var selectedAnswers = item.querySelectorAll(".answer.selected");
 
-    if (allAnswered) {
-      quizItems.forEach(function(item) {
-        var correctAnswers = item.querySelector('.right-answers-hidden-text').textContent.trim().split(',');
-        var selectedAnswers = item.querySelectorAll('.answer.selected');
-
-        selectedAnswers.forEach(function(selectedAnswer) {
-          var selectedIndex = selectedAnswer.dataset.index.charCodeAt(0) - 97; // 'a' -> 0, 'b' -> 1, ...
-          if (correctAnswers.includes(selectedAnswer.dataset.index)) {
-            selectedAnswer.classList.add('correct');
-          } else {
-            selectedAnswer.classList.add('wrong');
-          }
-        });
-
-        var answers = item.querySelectorAll('.answer');
-        answers.forEach(function(answer) {
-          answer.classList.add('no-click');
-        });
+      selectedAnswers.forEach(function (selectedAnswer) {
+        if (selectedAnswer.dataset.isCorrect === "true") {
+          selectedAnswer.classList.add("correct");
+        } else {
+          selectedAnswer.classList.add("wrong");
+          allCorrect = false;
+        }
       });
 
-      retryButton.style.display = 'block';
-      submitButton.style.display = 'none';
-    } else {
-      alert('Please answer all questions before submitting.');
+      item.querySelectorAll(".answer").forEach(function (answer) {
+        if (!answer.classList.contains("selected")) {
+          answer.classList.add("no-click");
+        }
+      });
+    });
+
+    retryButton.style.display = "block";
+    submitButton.style.display = "none";
+
+    if (!allCorrect) {
+      memberData.quizAttempts[quizName] = memberData.quizAttempts[quizName]
+        ? memberData.quizAttempts[quizName] + 1
+        : 1;
+
+      let remainingAttempts = 5 - memberData.quizAttempts[quizName];
+      attemptInfoBox.textContent = `Verbleibende Versuche: ${remainingAttempts}`;
+      attemptInfoBox.style.backgroundColor =
+        remainingAttempts > 2
+          ? "blue"
+          : remainingAttempts === 2
+          ? "yellow"
+          : "red";
+
+      if (remainingAttempts <= 0) {
+        memberData.blockedpruefung = {
+          name: quizName,
+          timestamp: new Date().toISOString(),
+        };
+      }
+
+      await memberstack.updateMemberJSON({ json: memberData });
+      console.log(
+        "Prüfung abgeschlossen. Ergebnis: " +
+          (allCorrect ? "Bestanden" : "Nicht bestanden")
+      );
     }
   });
 
-  retryButton.addEventListener('click', function() {
-    quizItems.forEach(function(item) {
-      var answers = item.querySelectorAll('.answer');
-      answers.forEach(function(answer) {
-        answer.classList.remove('selected', 'correct', 'wrong', 'no-click');
+  retryButton.addEventListener("click", async function () {
+    quizItems.forEach(function (item) {
+      item.querySelectorAll(".answer").forEach(function (answer) {
+        answer.classList.remove("selected", "correct", "wrong", "no-click");
       });
     });
 
-    retryButton.style.display = 'none';
-    submitButton.style.display = 'block';
-  });
-});
+    attemptInfoBox.style.display = "none";
+    retryButton.style.display = "none";
+    submitButton.style.display = "block";
 
+    // Setze den Fragestatus zurück
+    questionsAnswered.fill(false);
+    // Aktualisiere den Zustand des "Prüfung absenden"-Buttons
+    updateSubmitButtonState();
+
+    if (memberData.quizAttempts[quizName]) {
+      const lastAttemptTime = new Date(
+        memberData.quizAttempts[quizName].timestamp
+      );
+      const currentTime = new Date();
+
+      if ((currentTime - lastAttemptTime) / 3600000 >= 24) {
+        memberData.quizAttempts[quizName] = 0;
+        await memberstack.updateMemberJSON({ json: memberData });
+        console.log("Quiz-Wiederholung ermöglicht.");
+      }
+    }
+  });
+
+  // Initialisiere den Zustand des "Prüfung absenden"-Buttons
+  updateSubmitButtonState();
+});
