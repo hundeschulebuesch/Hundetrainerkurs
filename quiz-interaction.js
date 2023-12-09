@@ -69,9 +69,13 @@ async function checkQuizBlock(quizName, memberData, attemptInfoBox) {
     const timeRemaining = 24 * 3600000 - (currentTime - blockTime);
 
     if (timeRemaining > 0) {
-      attemptInfoBox.innerHTML = `<p>${formatTime(
-        timeRemaining
-      )} bis zum nächsten Versuch.</p>`;
+      // Update the remaining time using the updateRemainingTime function
+      updateRemainingTime(timeRemaining, attemptInfoBox);
+
+      // Format the remaining time and display it
+      const formattedTime = formatTime(timeRemaining);
+      attemptInfoBox.innerHTML = `<p>${formattedTime} bis zum nächsten Versuch.</p>`;
+
       return timeRemaining;
     } else {
       delete memberData.blockedpruefung;
@@ -365,9 +369,23 @@ async function handleRetryButtonClick(
 }
 
 function updateRemainingTime(timeRemaining, timerElement) {
-  // ...
-  // Logik zur Aktualisierung der verbleibenden Zeit
-  // ...
+  // Update the time display immediately
+  timerElement.innerHTML = formatTime(timeRemaining);
+
+  // Update the time display in real-time
+  const countdownInterval = 1000; // Update every 1 second (1000 milliseconds)
+  const countdownTimer = setInterval(function () {
+    timeRemaining -= 1000; // Subtract 1 second (1000 milliseconds)
+    if (timeRemaining <= 0) {
+      // Time has run out, clear the interval
+      clearInterval(countdownTimer);
+      timerElement.innerHTML = "Time's up!";
+      // You can perform any actions needed when time runs out here
+    } else {
+      // Update the time display
+      timerElement.innerHTML = formatTime(timeRemaining);
+    }
+  }, countdownInterval);
 }
 
 // Initialisierung
